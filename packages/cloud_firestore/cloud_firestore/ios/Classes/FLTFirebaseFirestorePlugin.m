@@ -165,7 +165,13 @@ FlutterStandardMethodCodec *_codec;
 }
 
 - (void)detachFromEngineForRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar {
-  [self cleanupWithCompletion:nil];
+    @try {
+        [self cleanupWithCompletion:nil];
+    }
+    @catch (NSException * e) {
+        NSLog(@"Hmmm, this is a bad soln");
+    }
+    @finally {}
 }
 
 - (void)handleMethodCall:(FlutterMethodCall *)call result:(FlutterResult)flutterResult {
