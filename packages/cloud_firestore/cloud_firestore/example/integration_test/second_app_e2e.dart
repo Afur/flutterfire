@@ -2,6 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,24 +29,26 @@ void runSecondAppTests() {
       'Secondary app Firestore instance',
       () {
         testWidgets(
-            'Second Firestore instance should fail due to firestore.rules forbidding data writes',
-            (_) async {
-          // successful write on default app instance
-          await firestore
-              .collection('flutter-tests/banned/doc')
-              .add({'foo': 'bar'});
-
-          // permission denied on second app with Firebase that denies database writes
-          await expectLater(
-            secondFirestoreProject
+          'Second Firestore instance should fail due to firestore.rules forbidding data writes',
+          (_) async {
+            // successful write on default app instance
+            await firestore
                 .collection('flutter-tests/banned/doc')
-                .add({'foo': 'bar'}),
-            throwsA(
-              isA<FirebaseException>()
-                  .having((e) => e.code, 'code', 'permission-denied'),
-            ),
-          );
-        });
+                .add({'foo': 'bar'});
+
+            // permission denied on second app with Firebase that denies database writes
+            await expectLater(
+              secondFirestoreProject
+                  .collection('flutter-tests/banned/doc')
+                  .add({'foo': 'bar'}),
+              throwsA(
+                isA<FirebaseException>()
+                    .having((e) => e.code, 'code', 'permission-denied'),
+              ),
+            );
+          },
+          skip: defaultTargetPlatform == TargetPlatform.windows,
+        );
       },
     );
   });

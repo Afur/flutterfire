@@ -29,6 +29,17 @@ void runFieldValueTests() {
         await doc.update({'foo': FieldValue.increment(1)});
         DocumentSnapshot<Map<String, dynamic>> snapshot = await doc.get();
         expect(snapshot.data()!['foo'], equals(3));
+        // Expect it to be a int
+        expect(snapshot.data()!['foo'], isA<int>());
+      });
+
+      testWidgets('increments a big number if it exists', (_) async {
+        DocumentReference<Map<String, dynamic>> doc =
+            await initializeTest('field-value-increment-exists');
+        await doc.set({'foo': 0});
+        await doc.update({'foo': FieldValue.increment(2148000000)});
+        DocumentSnapshot<Map<String, dynamic>> snapshot = await doc.get();
+        expect(snapshot.data()!['foo'], equals(2148000000));
       });
 
       testWidgets('decrements a number', (_) async {
@@ -96,10 +107,10 @@ void runFieldValueTests() {
         DocumentReference<Map<String, dynamic>> doc =
             await initializeTest('field-value-array-union-update-array');
         await doc.set({
-          'foo': [1, 2]
+          'foo': [1, 2],
         });
         await doc.update({
-          'foo': FieldValue.arrayUnion([3, 4])
+          'foo': FieldValue.arrayUnion([3, 4]),
         });
         DocumentSnapshot<Map<String, dynamic>> snapshot = await doc.get();
         expect(snapshot.data()!['foo'], equals([1, 2, 3, 4]));
@@ -111,7 +122,7 @@ void runFieldValueTests() {
             await initializeTest('field-value-array-union-replace');
         await doc.set({'foo': 'bar'});
         await doc.update({
-          'foo': FieldValue.arrayUnion([3, 4])
+          'foo': FieldValue.arrayUnion([3, 4]),
         });
         DocumentSnapshot<Map<String, dynamic>> snapshot = await doc.get();
         expect(snapshot.data()!['foo'], equals([3, 4]));
@@ -122,7 +133,7 @@ void runFieldValueTests() {
             await initializeTest('field-value-array-union-replace');
         await doc.set({'foo': 'bar'});
         await doc.set({
-          'foo': FieldValue.arrayUnion([3, 4])
+          'foo': FieldValue.arrayUnion([3, 4]),
         });
         DocumentSnapshot<Map<String, dynamic>> snapshot = await doc.get();
         expect(snapshot.data()!['foo'], equals([3, 4]));
@@ -134,10 +145,10 @@ void runFieldValueTests() {
         DocumentReference<Map<String, dynamic>> doc =
             await initializeTest('field-value-array-remove-existing');
         await doc.set({
-          'foo': [1, 2, 3, 4]
+          'foo': [1, 2, 3, 4],
         });
         await doc.update({
-          'foo': FieldValue.arrayRemove([3, 4])
+          'foo': FieldValue.arrayRemove([3, 4]),
         });
         DocumentSnapshot<Map<String, dynamic>> snapshot = await doc.get();
         expect(snapshot.data()!['foo'], equals([1, 2]));
@@ -149,7 +160,7 @@ void runFieldValueTests() {
             await initializeTest('field-value-array-remove-replace');
         await doc.set({'foo': 'bar'});
         await doc.update({
-          'foo': FieldValue.arrayUnion([3, 4])
+          'foo': FieldValue.arrayUnion([3, 4]),
         });
         DocumentSnapshot<Map<String, dynamic>> snapshot = await doc.get();
         expect(snapshot.data()!['foo'], equals([3, 4]));
@@ -161,7 +172,7 @@ void runFieldValueTests() {
             await initializeTest('field-value-array-remove-replace');
         await doc.set({'foo': 'bar'});
         await doc.set({
-          'foo': FieldValue.arrayUnion([3, 4])
+          'foo': FieldValue.arrayUnion([3, 4]),
         });
         DocumentSnapshot<Map<String, dynamic>> snapshot = await doc.get();
         expect(snapshot.data()!['foo'], equals([3, 4]));
@@ -179,16 +190,52 @@ void runFieldValueTests() {
               FirebaseFirestore.instance.doc('foo/bar');
 
           await doc.set({
-            'foo': [1]
+            'foo': [1],
           });
           await doc.update({
-            'foo': FieldValue.arrayUnion([2, ref])
+            'foo': FieldValue.arrayUnion([2, ref]),
           });
           DocumentSnapshot<Map<String, dynamic>> snapshot = await doc.get();
           expect(snapshot.data()!['foo'], equals([1, 2, ref]));
         },
         skip: true,
       );
+
+      testWidgets('query should restore nested Timestamp', (_) async {
+        DocumentReference<Map<String, dynamic>> doc =
+            await initializeTest('nested-timestamp');
+        await Future.wait([
+          doc.set({
+            'nested': {
+              'timestamp': Timestamp.fromDate(DateTime(2020)),
+            },
+            'timestamp': Timestamp.fromDate(DateTime(2020)),
+          }),
+        ]);
+
+        final snapshot = await doc.get();
+
+        expect(snapshot.data()!['timestamp'], isA<Timestamp>());
+        expect(snapshot.data()!['nested']['timestamp'], isA<Timestamp>());
+      });
+
+      testWidgets('query should restore nested Timestamp in List', (_) async {
+        DocumentReference<Map<String, dynamic>> doc =
+            await initializeTest('nested-timestamp');
+        await doc.set({
+          'timestamp': Timestamp.fromDate(DateTime.now()),
+          'logs': [
+            {
+              'createdAt': Timestamp.fromDate(DateTime.now()),
+            },
+          ],
+        });
+
+        final snapshot = await doc.get();
+
+        expect(snapshot.data()!['timestamp'], isA<Timestamp>());
+        expect(snapshot.data()!['logs'][0]['createdAt'], isA<Timestamp>());
+      });
     });
   });
 }

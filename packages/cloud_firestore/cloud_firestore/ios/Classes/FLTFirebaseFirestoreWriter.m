@@ -39,6 +39,13 @@
     [self writeByte:FirestoreDataTypeDocumentReference];
     [self writeValue:appName];
     [self writeValue:documentPath];
+
+    FIRFirestore *firestore = document.firestore;
+
+    FLTFirebaseFirestoreExtension *extension =
+        [FLTFirebaseFirestoreUtils getCachedInstanceForFirestore:firestore];
+    [self writeValue:extension.databaseURL];
+
   } else if ([value isKindOfClass:[FIRDocumentSnapshot class]]) {
     [super writeValue:[self FIRDocumentSnapshot:value]];
   } else if ([value isKindOfClass:[FIRLoadBundleTaskProgress class]]) {
@@ -149,15 +156,19 @@
 }
 
 - (NSDictionary *)FIRDocumentSnapshot:(FIRDocumentSnapshot *)documentSnapshot {
+  if (documentSnapshot == nil) {
+    NSLog(@"Error: documentSnapshot is nil");
+    return nil;
+  }
+
+  NSNumber *documentSnapshotHash = @([documentSnapshot hash]);
   NSString *timestampBehaviorString =
-      FLTFirebaseFirestorePlugin.serverTimestampMap[@([documentSnapshot hash])];
+      [FLTFirebaseFirestorePlugin.serverTimestampMap objectForKey:documentSnapshotHash];
 
   FIRServerTimestampBehavior serverTimestampBehavior =
       [self toServerTimestampBehavior:timestampBehaviorString];
 
-  if (timestampBehaviorString != nil) {
-    [FLTFirebaseFirestorePlugin.serverTimestampMap removeObjectForKey:@([documentSnapshot hash])];
-  }
+  [FLTFirebaseFirestorePlugin.serverTimestampMap removeObjectForKey:documentSnapshotHash];
 
   return @{
     @"path" : documentSnapshot.reference.path,
@@ -167,7 +178,6 @@
     @"metadata" : documentSnapshot.metadata,
   };
 }
-
 - (NSDictionary *)FIRLoadBundleTaskProgress:(FIRLoadBundleTaskProgress *)progress {
   NSString *state;
 
@@ -192,18 +202,23 @@
 }
 
 - (NSDictionary *)FIRQuerySnapshot:(FIRQuerySnapshot *)querySnapshot {
+  if (querySnapshot == nil) {
+    NSLog(@"Error: querySnapshot is nil");
+    return nil;
+  }
+
+  NSNumber *querySnapshotHash = @([querySnapshot hash]);
+
   NSMutableArray *paths = [NSMutableArray array];
   NSMutableArray *documents = [NSMutableArray array];
   NSMutableArray *metadatas = [NSMutableArray array];
   NSString *timestampBehaviorString =
-      FLTFirebaseFirestorePlugin.serverTimestampMap[@([querySnapshot hash])];
+      [FLTFirebaseFirestorePlugin.serverTimestampMap objectForKey:querySnapshotHash];
 
   FIRServerTimestampBehavior serverTimestampBehavior =
       [self toServerTimestampBehavior:timestampBehaviorString];
 
-  if (timestampBehaviorString != nil) {
-    [FLTFirebaseFirestorePlugin.serverTimestampMap removeObjectForKey:@([querySnapshot hash])];
-  }
+  [FLTFirebaseFirestorePlugin.serverTimestampMap removeObjectForKey:querySnapshotHash];
 
   for (FIRDocumentSnapshot *document in querySnapshot.documents) {
     [paths addObject:document.reference.path];

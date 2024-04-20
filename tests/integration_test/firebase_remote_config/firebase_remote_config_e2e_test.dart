@@ -77,6 +77,11 @@ void main() {
             FirebaseRemoteConfig.instance.getValue('nonexisting').source,
             ValueSource.valueStatic,
           );
+
+          expect(
+            FirebaseRemoteConfig.instance.getAll(),
+            isA<Map<String, RemoteConfigValue>>(),
+          );
         },
         // iOS v9.2.0 hangs on ci if `fetchAndActivate()` is used, but works locally.
         // macOS skipped because it needs keychain sharing entitlement. See: https://github.com/firebase/flutterfire/issues/9538
@@ -136,6 +141,17 @@ void main() {
         // This feature is not supported on Web
         skip: kIsWeb,
       );
+
+      test('default values', () async {
+        // Ensure that the default values are returned when no values are set.
+        //
+        // We test this to be sure that the behaviour is consistent across
+        // platforms.
+        expect(FirebaseRemoteConfig.instance.getString('does-not-exist'), '');
+        expect(FirebaseRemoteConfig.instance.getBool('does-not-exist'), isFalse);
+        expect(FirebaseRemoteConfig.instance.getInt('does-not-exist'), 0);
+        expect(FirebaseRemoteConfig.instance.getDouble('does-not-exist'), 0.0);
+      });
     },
   );
 }

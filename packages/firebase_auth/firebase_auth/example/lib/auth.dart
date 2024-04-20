@@ -4,6 +4,8 @@
 
 import 'dart:io';
 
+import 'package:barcode_widget/barcode_widget.dart';
+import 'package:collection/collection.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_auth_example/main.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -12,6 +14,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_signin_button/flutter_signin_button.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 
 typedef OAuthSignIn = void Function();
 
@@ -60,7 +63,7 @@ extension on AuthMode {
 class AuthGate extends StatefulWidget {
   // ignore: public_member_api_docs
   const AuthGate({Key? key}) : super(key: key);
-
+  static String? appleAuthorizationCode;
   @override
   State<StatefulWidget> createState() => _AuthGateState();
 }
@@ -121,6 +124,9 @@ class _AuthGateState extends State<AuthGate> {
         Buttons.Yahoo: () => _handleMultiFactorException(
               _signInWithYahoo,
             ),
+        Buttons.Facebook: () => _handleMultiFactorException(
+              _signInWithFacebook,
+            ),
       };
     }
   }
@@ -161,7 +167,7 @@ class _AuthGateState extends State<AuthGate> {
                                     'dismiss',
                                     style: TextStyle(color: Colors.white),
                                   ),
-                                )
+                                ),
                               ],
                               contentTextStyle:
                                   const TextStyle(color: Colors.white),
@@ -408,13 +414,27 @@ class _AuthGateState extends State<AuthGate> {
       setState(() {
         error = '${e.message}';
       });
-      final firstHint = e.resolver.hints.first;
-      if (firstHint is! PhoneMultiFactorInfo) {
+      final firstTotpHint = e.resolver.hints
+          .firstWhereOrNull((element) => element is TotpMultiFactorInfo);
+      if (firstTotpHint != null) {
+        final code = await getSmsCodeFromUser(context);
+        final assertion = await TotpMultiFactorGenerator.getAssertionForSignIn(
+          firstTotpHint.uid,
+          code!,
+        );
+        await e.resolver.resolveSignIn(assertion);
+        return;
+      }
+
+      final firstPhoneHint = e.resolver.hints
+          .firstWhereOrNull((element) => element is PhoneMultiFactorInfo);
+
+      if (firstPhoneHint is! PhoneMultiFactorInfo) {
         return;
       }
       await auth.verifyPhoneNumber(
         multiFactorSession: e.resolver.session,
-        multiFactorInfo: firstHint,
+        multiFactorInfo: firstPhoneHint,
         verificationCompleted: (_) {},
         verificationFailed: print,
         codeSent: (String verificationId, int? resendToken) async {
@@ -542,57 +562,79 @@ class _AuthGateState extends State<AuthGate> {
     }
   }
 
-  Future<void> _signInWithTwitter() async {
-    TwitterAuthProvider twitterProvider = TwitterAuthProvider();
+  Future<void> _signInWithFacebook() async {
+    // Trigger the authentication flow
+    // by default we request the email and the public profile
+    final LoginResult result = await FacebookAuth.instance.login();
 
-    if (kIsWeb) {
-      await auth.signInWithPopup(twitterProvider);
+    if (result.status == LoginStatus.success) {
+      // Get access token
+      final AccessToken accessToken = result.accessToken!;
+
+      // Login with token
+      await auth.signInWithCredential(
+        FacebookAuthProvider.credential(accessToken.token),
+      );
     } else {
-      await auth.signInWithProvider(twitterProvider);
+      print('Facebook login did not succeed');
+      print(result.status);
+      print(result.message);
     }
   }
+}
 
-  Future<void> _signInWithApple() async {
-    final appleProvider = AppleAuthProvider();
-    appleProvider.addScope('email');
+Future<void> _signInWithTwitter() async {
+  TwitterAuthProvider twitterProvider = TwitterAuthProvider();
 
-    if (kIsWeb) {
-      // Once signed in, return the UserCredential
-      await auth.signInWithPopup(appleProvider);
-    } else {
-      await auth.signInWithProvider(appleProvider);
-    }
+  if (kIsWeb) {
+    await auth.signInWithPopup(twitterProvider);
+  } else {
+    await auth.signInWithProvider(twitterProvider);
   }
+}
 
-  Future<void> _signInWithYahoo() async {
-    final yahooProvider = YahooAuthProvider();
+Future<void> _signInWithApple() async {
+  final appleProvider = AppleAuthProvider();
+  appleProvider.addScope('email');
 
-    if (kIsWeb) {
-      // Once signed in, return the UserCredential
-      await auth.signInWithPopup(yahooProvider);
-    } else {
-      await auth.signInWithProvider(yahooProvider);
-    }
+  if (kIsWeb) {
+    // Once signed in, return the UserCredential
+    await auth.signInWithPopup(appleProvider);
+  } else {
+    final userCred = await auth.signInWithProvider(appleProvider);
+    AuthGate.appleAuthorizationCode =
+        userCred.additionalUserInfo?.authorizationCode;
   }
+}
 
-  Future<void> _signInWithGitHub() async {
-    final githubProvider = GithubAuthProvider();
+Future<void> _signInWithYahoo() async {
+  final yahooProvider = YahooAuthProvider();
 
-    if (kIsWeb) {
-      await auth.signInWithPopup(githubProvider);
-    } else {
-      await auth.signInWithProvider(githubProvider);
-    }
+  if (kIsWeb) {
+    // Once signed in, return the UserCredential
+    await auth.signInWithPopup(yahooProvider);
+  } else {
+    await auth.signInWithProvider(yahooProvider);
   }
+}
 
-  Future<void> _signInWithMicrosoft() async {
-    final microsoftProvider = MicrosoftAuthProvider();
+Future<void> _signInWithGitHub() async {
+  final githubProvider = GithubAuthProvider();
 
-    if (kIsWeb) {
-      await auth.signInWithPopup(microsoftProvider);
-    } else {
-      await auth.signInWithProvider(microsoftProvider);
-    }
+  if (kIsWeb) {
+    await auth.signInWithPopup(githubProvider);
+  } else {
+    await auth.signInWithProvider(githubProvider);
+  }
+}
+
+Future<void> _signInWithMicrosoft() async {
+  final microsoftProvider = MicrosoftAuthProvider();
+
+  if (kIsWeb) {
+    await auth.signInWithPopup(microsoftProvider);
+  } else {
+    await auth.signInWithProvider(microsoftProvider);
   }
 }
 
@@ -631,6 +673,73 @@ Future<String?> getSmsCodeFromUser(BuildContext context) async {
             autofocus: true,
           ),
         ),
+      );
+    },
+  );
+
+  return smsCode;
+}
+
+Future<String?> getTotpFromUser(
+  BuildContext context,
+  TotpSecret totpSecret,
+) async {
+  String? smsCode;
+
+  final qrCodeUrl = await totpSecret.generateQrCodeUrl(
+    accountName: FirebaseAuth.instance.currentUser!.email,
+    issuer: 'Firebase',
+  );
+
+  // Update the UI - wait for the user to enter the SMS code
+  await showDialog<String>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('TOTP code:'),
+        content: Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              BarcodeWidget(
+                barcode: Barcode.qrCode(),
+                data: qrCodeUrl,
+                width: 150,
+                height: 150,
+              ),
+              TextField(
+                onChanged: (value) {
+                  smsCode = value;
+                },
+                textAlign: TextAlign.center,
+                autofocus: true,
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  totpSecret.openInOtpApp(qrCodeUrl);
+                },
+                child: const Text('Open in OTP App'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: const Text('Sign in'),
+          ),
+          OutlinedButton(
+            onPressed: () {
+              smsCode = null;
+              Navigator.of(context).pop();
+            },
+            child: const Text('Cancel'),
+          ),
+        ],
       );
     },
   );

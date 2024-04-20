@@ -76,7 +76,7 @@ class MethodChannelFirebaseAppCheck extends FirebaseAppCheckPlatform {
 
   @override
   Future<void> activate({
-    String? webRecaptchaSiteKey,
+    WebProvider? webProvider,
     AndroidProvider? androidProvider,
     AppleProvider? appleProvider,
   }) async {
@@ -97,12 +97,12 @@ class MethodChannelFirebaseAppCheck extends FirebaseAppCheckPlatform {
   @override
   Future<String?> getToken(bool forceRefresh) async {
     try {
-      final result = await channel.invokeMapMethod(
+      final result = await channel.invokeMethod(
         'FirebaseAppCheck#getToken',
         {'appName': app.name, 'forceRefresh': forceRefresh},
       );
 
-      return result!['token'];
+      return result;
     } on PlatformException catch (e, s) {
       convertPlatformException(e, s);
     }
@@ -117,7 +117,7 @@ class MethodChannelFirebaseAppCheck extends FirebaseAppCheckPlatform {
         'FirebaseAppCheck#setTokenAutoRefreshEnabled',
         {
           'appName': app.name,
-          'isTokenAutoRefreshEnabled': isTokenAutoRefreshEnabled
+          'isTokenAutoRefreshEnabled': isTokenAutoRefreshEnabled,
         },
       );
     } on PlatformException catch (e, s) {
@@ -128,5 +128,21 @@ class MethodChannelFirebaseAppCheck extends FirebaseAppCheckPlatform {
   @override
   Stream<String?> get onTokenChange {
     return _tokenChangesListeners[app.name]!.stream;
+  }
+
+  @override
+  Future<String> getLimitedUseToken() async {
+    try {
+      final result = await channel.invokeMethod(
+        'FirebaseAppCheck#getLimitedUseAppCheckToken',
+        {
+          'appName': app.name,
+        },
+      );
+
+      return result;
+    } on PlatformException catch (e, s) {
+      convertPlatformException(e, s);
+    }
   }
 }

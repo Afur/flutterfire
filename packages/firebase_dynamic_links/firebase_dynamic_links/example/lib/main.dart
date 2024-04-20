@@ -164,17 +164,19 @@ class _MainScreenState extends State<_MainScreen> {
                       }
                     },
                     onLongPress: () {
-                      Clipboard.setData(ClipboardData(text: _linkMessage));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Copied Link!')),
-                      );
+                      if (_linkMessage != null) {
+                        Clipboard.setData(ClipboardData(text: _linkMessage!));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Copied Link!')),
+                        );
+                      }
                     },
                     child: Text(
                       _linkMessage ?? '',
                       style: const TextStyle(color: Colors.blue),
                     ),
                   ),
-                  Text(_linkMessage == null ? '' : _testString)
+                  Text(_linkMessage == null ? '' : _testString),
                 ],
               ),
             );
